@@ -190,7 +190,6 @@ def adderradas(idquestao):
     erradas = request.json['erradas']
 
     try:
-
         questao = questaoexiste(idquestao)
         for resposta in erradas:
             if resposta not in questao['erradas']:
@@ -209,7 +208,7 @@ Se a alternativa já existir, nao adicione duas vezes
 Isso se refere ao teste 008b
 
 Faça também com que tentar adicionar alternativa a uma questão
-que não existe resulte cod status 404 
+que não existe resulte cod status 404
 
 Isso se refere ao teste 008c
 
@@ -295,7 +294,6 @@ def responder(idquestao):
             respostas[resp['usuario']] = {idquestao: resp['resposta']}
             return jsonify(respostas[resp['usuario']])
 
-
         if idquestao in respostas[resp['usuario']]:
             return jsonify({'Erro': 'Questão já respondida.'}), 409
 
@@ -345,6 +343,31 @@ o usuário responder à questao.
 
 
 '''
+@app.route('/autoteste/<nome>/resultados', methods=['GET'])
+def resultados(nome):
+    respondidas = respostas[nome]
+    idquest = [questao['id'] for questao in questoes]
+    corretas = {questao['id']: questao['corretas'] for questao in questoes}
+    erradas = {questao['id']: questao['erradas'] for questao in questoes}
+    acertos = 0
+    erros = 0
+    naoresp = 0
+
+    for iD in idquest:
+        if iD not in respondidas:
+            naoresp += 1
+        elif respondidas[iD] in corretas[iD]:
+            acertos += 1
+        elif respondidas[iD] in erradas[iD]:
+            erros += 1
+
+    return jsonify({
+        'usuario': nome,
+        'acertos': acertos,
+        'erros': erros,
+        'nao respondidas': naoresp
+    })
+
 
 '''
 Agora, os proximos testes vao verificar mais algumas coisas
