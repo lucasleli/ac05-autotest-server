@@ -92,7 +92,7 @@ def retquestao(idquestao):
     try:
         questao = questaoexiste(idquestao)
         return jsonify(questao)
-    except Exception:
+    except ValueError:
         return jsonify({'erro': 'Questao nao encontrada'}), 404
 
 
@@ -197,7 +197,7 @@ def adderradas(idquestao):
                 questao['erradas'].append(resposta)
             return jsonify(questao)
 
-    except Exception:
+    except ValueError:
         return jsonify({'erro': 'Questao nao encontrada'}), 404
 
 
@@ -233,7 +233,7 @@ def addcorretas(idquestao):
                 questao['corretas'].append(resposta)
             return jsonify(questao)
 
-    except Exception:
+    except ValueError:
         return jsonify({'erro': 'Questao nao encontrada'}), 404
 
 '''
@@ -286,22 +286,26 @@ def responder(idquestao):
     resp = request.json
     try:
         questao = questaoexiste(idquestao)
-        if resp['usuario'] in respostas:
 
-            if (resp['resposta'] not in respostas['corretas']) or (
-                resp['resposta'] not in respostas['erradas']):
-                return jsonify({'Erro': 'Alternativa inexistente.'}), 400
+        if (resp['resposta'] not in questao['corretas']) and (
+            resp['resposta'] not in questao['erradas']):
+            return jsonify({'Erro': 'Alternativa inexistente.'}), 400
 
-            else:
-                if idquestao not in respostas[resp['usuario']]
-                    respostas[resp['usuario']][idquestao] = resp['resposta']
-                else:
-                    return jsonify({'Erro': 'Questão já respondida.'}), 409
+        if resp['usuario'] not in respostas:
+            respostas[resp['usuario']] = {idquestao: resp['resposta']}
+            return jsonify(respostas[resp['usuario']])
 
 
+        if idquestao in respostas[resp['usuario']]:
+            return jsonify({'Erro': 'Questão já respondida.'}), 409
 
-    except Exception:
+        respostas[resp['usuario']][idquestao] = resp['resposta']
+        return jsonify(respostas[resp['usuario']])
+
+    except ValueError:
         return jsonify({'erro': 'Questao nao encontrada'}), 404
+
+
 '''
 O usuario deve poder ver quantas perguntas ainda nao
 respondeu, quantas acertou e quantas errou.
@@ -366,11 +370,11 @@ def reseta():
     questoes = copy.deepcopy(questoes_iniciais)
 
 
-def questaoexiste(idquestao):
+def questaoexiste(idquestao:int):
     for questao in questoes:
-        if idquestao == questao['id']:
+        if questao['id'] == idquestao:
             return questao
-    raise Exception
+    raise ValueError
 
 
 reseta()
