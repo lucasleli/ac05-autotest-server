@@ -293,7 +293,6 @@ def responder(idquestao):
 
         if resp['usuario'] not in respostas:
             respostas[resp['usuario']] = {idquestao: resp['resposta']}
-            #respostas[resp['usuario']][idquestao] = resp['resposta']
             return jsonify(respostas[resp['usuario']])
 
 
