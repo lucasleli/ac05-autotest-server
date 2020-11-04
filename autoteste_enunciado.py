@@ -1,44 +1,48 @@
-from flask import Flask,jsonify,abort
+import copy
+from flask import Flask, jsonify, abort
 from flask import make_response
 from flask import request
 
 
 app = Flask(__name__)
-app.url_map.strict_slashes = False #barras no fim da URL
+app.url_map.strict_slashes = False  # barras no fim da URL
 
 
 questoes = [
     {
         'id': 1,
         'pergunta': 'O que quer dizer RPC?',
-        'erradas': ['Random Person Changer', 'Renato passa pelo centro' ],
+        'erradas': ['Random Person Changer', 'Renato passa pelo centro'],
         'corretas': ['Remote procedure call']
     },
     {
         'id': 2,
         'pergunta': 'Quanto vale 2**6?',
-        'erradas': [12,36,26,32],
+        'erradas': [12, 36, 26, 32],
         'corretas': [64]
     }
 ]
 
 respostas = {
-        'marcio':{1:'Random Person Changer'},
-        'maria':{1:'Remote procedure call', 2: 64},
-        }
+    'marcio': {1: 'Random Person Changer'},
+    'maria': {1: 'Remote procedure call', 2: 64},
+}
 
 
-#tem uma certa magia envolvida nesse reseta.
-#nao precisa se preocupar com isso, tudo
-#referente ao reseta já está feito :)
-@app.route('/autoteste/reseta', methods = ['POST'])
+# tem uma certa magia envolvida nesse reseta.
+# nao precisa se preocupar com isso, tudo
+# referente ao reseta já está feito :)
+@app.route('/autoteste/reseta', methods=['POST'])
 def reseta_request():
     reseta()
-    return {'status':'resetado'}
+    return jsonify({'status': 'resetado'})
+
 
 @app.route('/')
 def index():
-        return "Testes automáticos!"
+    return "Testes automáticos!"
+
+
 '''
 REPARE:
 
@@ -56,6 +60,10 @@ uma lista completa de todas as questoes
 
 Com isso, passaremos o teste 001 e o 001a (esse ultimo usa as questoes que já vem definidas no servidor, como 'O que quer dizer RPC" e "quanto vale 2**6"
 '''
+@app.route('/autoteste/questoes', methods=['GET'])
+def retquestoes():
+    return jsonify(questoes)
+
 
 '''
 Ao acessar a URL /autoteste/respostas o usuario deve receber
@@ -64,6 +72,9 @@ definido no inicio do arquivo
 
 Com isso, passaremos o teste 002 e o 002a
 '''
+@app.route('/autoteste/respostas', methods=['GET'])
+def retrespostas():
+    return jsonify(respostas)
 
 
 '''
@@ -76,6 +87,14 @@ Se nao existir, retorne um texto de erro e o codigo 404
 
 Com isso, passaremos o teste 003
 '''
+@app.route('/autoteste/questao/<int:idquestao>', methods=['GET'])
+def retquestao(idquestao):
+    try:
+        questao = questaoexiste(idquestao)
+        return jsonify(questao)
+    except Exception:
+        return jsonify({'erro': 'Questao nao encontrada'}), 404
+
 
 '''
 
@@ -104,6 +123,20 @@ Com isso feito, passaremos o teste 004. O 004a é referente a um upgrade,
 que será descrito em breve
 
 '''
+@app.route('/autoteste/questao', methods=['POST'])
+def addquestao():
+    questao = request.json
+
+    if ('pergunta' not in questao) or (
+            'erradas' not in questao) or (
+            'corretas' not in questao):
+        return jsonify({'Erro': 'Parâmetros incompletos'}), 400
+
+    questao['id'] = len(questoes)+1
+    questoes.append(questao)
+
+    return jsonify(questao), 201
+
 
 '''
 Agora melhore sua funçao, fazendo com que, ao ser acrescentada uma
@@ -152,6 +185,21 @@ Se a questão existir, devemos retornar a questao modificada
 
 Isso se refere ao teste 008a
 '''
+@app.route('/autoteste/questao/<int:idquestao>/erradas', methods=['PUT'])
+def adderradas(idquestao):
+    erradas = request.json['erradas']
+
+    try:
+
+        questao = questaoexiste(idquestao)
+        for resposta in erradas:
+            if resposta not in questao['erradas']:
+                questao['erradas'].append(resposta)
+            return jsonify(questao)
+
+    except Exception:
+        return jsonify({'erro': 'Questao nao encontrada'}), 404
+
 
 '''
 Faça um upgrade na sua funcao de adicionar alternativas erradas
@@ -173,8 +221,20 @@ faça o mesmo, adicionando alternativas corretas extras
 
 (testes 009a, 009b e 009c)
 '''
+@app.route('/autoteste/questao/<int:idquestao>/corretas', methods=['PUT'])
+def addcorretas(idquestao):
+    corretas = request.json['corretas']
 
+    try:
 
+        questao = questaoexiste(idquestao)
+        for resposta in corretas:
+            if resposta not in questao['corretas']:
+                questao['corretas'].append(resposta)
+            return jsonify(questao)
+
+    except Exception:
+        return jsonify({'erro': 'Questao nao encontrada'}), 404
 
 '''
 Respondendo às perguntas
@@ -221,7 +281,27 @@ aumentando esse número aos poucos
 Faça também com que seja retornado um erro 404 quando a questão que
 o usuário tentou responder não existe. Isso é referente ao teste 010a
 '''
+@app.route('/autoteste/responder/<int:idquestao>', methods=['PUT'])
+def responder(idquestao):
+    resp = request.json
+    try:
+        questao = questaoexiste(idquestao)
+        if resp['usuario'] in respostas:
 
+            if (resp['resposta'] not in respostas['corretas']) or (
+                resp['resposta'] not in respostas['erradas']):
+                return jsonify({'Erro': 'Alternativa inexistente.'}), 400
+
+            else:
+                if idquestao not in respostas[resp['usuario']]
+                    respostas[resp['usuario']][idquestao] = resp['resposta']
+                else:
+                    return jsonify({'Erro': 'Questão já respondida.'}), 409
+
+
+
+    except Exception:
+        return jsonify({'erro': 'Questao nao encontrada'}), 404
 '''
 O usuario deve poder ver quantas perguntas ainda nao
 respondeu, quantas acertou e quantas errou.
@@ -274,19 +354,27 @@ id 10, e inserirmos uma nova, essa nova terá id 11
 
 -- testes 100 e 101
 '''
-       
-import copy
+
 respostas_iniciais = copy.deepcopy(respostas)
 questoes_iniciais = copy.deepcopy(questoes)
+
+
 def reseta():
     global respostas
     global questoes
     respostas = copy.deepcopy(respostas_iniciais)
     questoes = copy.deepcopy(questoes_iniciais)
 
+
+def questaoexiste(idquestao):
+    for questao in questoes:
+        if idquestao == questao['id']:
+            return questao
+    raise Exception
+
+
 reseta()
 
 if __name__ == '__main__':
-   app.url_map.strict_slashes = False
-   app.run(debug=True, host='0.0.0.0',port = 5004)
-
+    app.url_map.strict_slashes = False
+    app.run(debug=True, host='0.0.0.0', port=5004)
